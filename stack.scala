@@ -38,21 +38,21 @@ class LockFreeStack[T] extends TotalStack[T]{
     do {
       val (oldTop, tStamp) = top.get
       // pointer to top node
-      val (next, nStamp) = oldTop.nextStamp.get
+      val (next, nStamp) = node.nextStamp.get
       // the next node after the top node
       // should be null at this point
       //get the stamp from oldTop. Every time oldTop gets recyled,
       if((oldTop, tStamp) == top.get){
         // pointers to top still unchanged at this point
-        if(next == null){
-        if(oldTop.nextStamp.compareAndSet((next, nStamp), (node, nStamp+1))){
-          // change next pointer of oldTop from next to node
-          top.compareAndSet((oldTop, tStamp),(node, tStamp+1));
-          // change the pointer to top from oldTop to node
-          done = true
+        if (next == null){
+          if(node.nextStamp.compareAndSet((next, nStamp), (oldTop, nStamp+1))){
+            // change next pointer of node from null to oldTop
+            top.compareAndSet((oldTop, tStamp),(node, tStamp+1));
+            // change the pointer to top from oldTop to node
+            done = true
          }
         }
-      // next has been changed, 
+      // next has been changed, maybe dont need
       else
         top.compareAndSet((oldTop, tStamp), (next, tStamp+1))
       // move pointer along, next is already set
@@ -68,10 +68,12 @@ class LockFreeStack[T] extends TotalStack[T]{
       val (next, nStamp) = oldTop.nextStamp.get
       if(oldTop == null) done = true // empty stack; return None
       else{
-        val newTop = oldTop.next.get
+        val (newTop, oStamp) = oldTop.nextStamp.get
         // try to remove oldTop from list
         // not sure about below
         if(top.compareAndSet((oldTop, tStamp), (newTop,tStamp+1))){
+          // change top from oldTop to newTop. newTop defined as oldTop.next
+          // since we are popping
           result = Some(oldTop.value); free(oldTop); done = true
           
         }
@@ -82,9 +84,12 @@ class LockFreeStack[T] extends TotalStack[T]{
   }
 
 // Dont know how to right a linearlisability tester
+def main() = {
  /** types for the LinTesters */
-  type SeqType = scala.collection.immutable.List[Int]
-
+  var reps = 1250
+  var p = 4
+ type SeqType = scala.collection.immutable.List[Int]
+ type ConcQueue = ox.cads.TotalStack
   /** sequential behaviour we expect */
   def seqPush(x: Int)(s: SeqType) : (Unit, SeqType) =
     ((), x :: s)
@@ -93,3 +98,6 @@ class LockFreeStack[T] extends TotalStack[T]{
       case Nil => (None, s)
       case x :: newS => (Some(x), newS)
     }
+  def worker
+
+}
